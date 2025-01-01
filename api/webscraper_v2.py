@@ -435,7 +435,6 @@ class Player:
 
 
 
-
 class MVP:
     def __init__(self):
         pass
@@ -481,6 +480,8 @@ class MVP:
 
 
 if __name__ == "__main__":
+    # MLS 2024 = League + Playoffs
+
     # all_comps = AllCompetitions()
     # redirected_url = all_comps.single_id_compname_extractor(130)
     # print(redirected_url)
