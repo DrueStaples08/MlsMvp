@@ -169,7 +169,6 @@ class AllCompetitions:
 
 
 
-
 class Competition:
     def __init__(self):
         self.competition_name = None
@@ -208,7 +207,7 @@ class Competition:
         # ranges from 1 to max_page + x, i.e. any id can be used but will be duplicated based off the last page (max page) with the last set of games. 
         # I'm currently running the code starting on page 37 which is the last page for MLS 2024 before the info is duplicated.
         # Therefore once eveything is completed. I need to change the page number to 1 so I can extract the player info from the entire season.
-        page_number = 37
+        page_number = 1
         competition_id = str(competition_id)
         duplicate = False
         while True:
@@ -502,17 +501,17 @@ if __name__ == "__main__":
 
 
 
-    # comps = Competition()
-    # print(comps.choose_competition("mls", 2024))
+    comps = Competition()
+    print(comps.choose_competition("mls", 2024))
 
 
-    # match = Match()
-    # print(match.choose_match("mls", 2024))
+    match = Match()
+    print(match.choose_match("mls", 2024))
 
 
-    # player = Player()
-    # print(player.choose_player_stats("mls", 2024))
-    # print(player.competition_analysis("mls", 2024))
+    player = Player()
+    print(player.choose_player_stats("mls", 2024))
+    print(player.competition_analysis("mls", 2024))
 
 
     mvp = MVP()
