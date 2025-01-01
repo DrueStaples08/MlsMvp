@@ -4,7 +4,7 @@ import json
 import ast
 import pyspark
 from pyspark.sql import SparkSession, Row
-from pyspark.sql.functions import lit, udf, col, monotonically_increasing_id, to_json, desc
+from pyspark.sql.functions import lit, udf, col, monotonically_increasing_id, to_json, desc, sqrt
 from pyspark.sql.types import MapType, StringType
 from pyspark.sql.window import Window
 from pyspark.sql.functions import col, from_json, expr
@@ -443,15 +443,10 @@ class MVP:
         pass
 
 
-    def compute_mvp(self, competition_name: str, competition_year: int):
+    def compute_mvp(self, competition_name: str, competition_year: int, scalar: int):
+        assert scalar <= 10
         spark_sess = SparkSession.builder.appName("MVPSession").getOrCreate()
         all_player_stats_df = spark_sess.read.csv(f"{competition_name}_{competition_year}_dir/{competition_name}_{competition_year}_player_stats_analysis.csv", header=True, inferSchema=True)
-
-        def find_max_spi():
-            max_avg_spi = all_player_stats_df.agg({"avg(spi_score)": "max"})
-            max_avg_spi_var = round(max_avg_spi.collect()[0]["max(avg(spi_score))"], 1)
-            # max_avg_spi.show()
-            return max_avg_spi_var
 
         def find_max_matches_played():
             max_games_played = all_player_stats_df.agg({"count": "max"})
@@ -459,19 +454,33 @@ class MVP:
             # max_games_played.show()
             return max_games_played_var
         
-        max_avg_spi_var = find_max_spi()
+        def find_max_spi():
+            max_avg_spi = all_player_stats_df.filter(col("count") >= min_required_matches).agg({"avg(spi_score)": "max"})
+            max_avg_spi_var = round(max_avg_spi.collect()[0]["max(avg(spi_score))"], 1)
+            # max_avg_spi.show()
+            return max_avg_spi_var
+        
         max_games_played_var = find_max_matches_played()
+        min_required_matches = max_games_played_var // 2
+        max_avg_spi_var = find_max_spi()
+        print("Max Games Played: ", max_games_played_var, "\n")
+        print("Max Average SPI: ", max_avg_spi_var)
 
-        df_with_scaled_spi = all_player_stats_df.withColumn("spi_scaled", pyspark_round(col("avg(spi_score)") / float(max_avg_spi_var),3))
+
+
+        df_with_scaled_spi = all_player_stats_df.withColumn("spi_scaled", pyspark_round((col("avg(spi_score)")**scalar) / (float(max_avg_spi_var)**scalar),3))
         # df_with_scaled_spi.show()
         df_with_scaled_matches = all_player_stats_df.withColumn("matches_scaled", col("count") / max_games_played_var)
         
-        min_required_matches = max_games_played_var // 2
         # spi_scaled = x^n / max_games_played, where n will be included in other function that will allow me to scale up by n times (exponentionally) then scaled back down by the max scaled-up spi.
+        
         mvp_df = df_with_scaled_matches.join(df_with_scaled_spi, on=["player_name", "player_number", "count", "avg(spi_score)"]).filter(col("count") >= min_required_matches).sort(desc("spi_scaled"))
-        print(mvp_df.show())
-        mvp_df.write.mode("overwrite").csv(f"{competition_name}_{competition_year}_dir/{competition_name}_{competition_year}_mvp_results.csv", header=True)
-        print("MVP Results have been saved successfully!")
+        # mvp_distance_df = mvp_df.withColumn("euclidean_distance", sqrt(((1-col("spi_scaled"))**2 + (1-col("matches_scaled"))**2))).sort(desc("avg(spi_score)"))
+        mvp_distance_df = mvp_df.withColumn("euclidean_distance", sqrt(((1-col("spi_scaled"))**2 + (1-col("matches_scaled"))**2))).sort("euclidean_distance")
+
+        print(mvp_distance_df.show())
+        mvp_distance_df.write.mode("overwrite").csv(f"{competition_name}_{competition_year}_dir/{competition_name}_{competition_year}_mvp_results.csv", header=True)
+        print(f"MVP Results have been saved successfully with a scalar of {scalar}!")
         spark_sess.stop()
 
 
@@ -481,6 +490,9 @@ class MVP:
 
 if __name__ == "__main__":
     # MLS 2024 = League + Playoffs
+    # Add Euclidean Distance Column
+    # Allow exponential scaling to SPI Scores
+    # Turn into an API
 
     # all_comps = AllCompetitions()
     # redirected_url = all_comps.single_id_compname_extractor(130)
@@ -504,7 +516,7 @@ if __name__ == "__main__":
 
 
     mvp = MVP()
-    print(mvp.compute_mvp("mls", 2024))
+    print(mvp.compute_mvp("mls", 2024, 10))
 
 
 
