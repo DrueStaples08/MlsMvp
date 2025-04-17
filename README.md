@@ -1,6 +1,76 @@
 # MlsMvp
 Analysis to determine the most valuable player and a API to run it all 
 
+# Soccer MVP Analyzer
+
+This project calculates the **Most Valuable Player (MVP)** for soccer leagues like Major League Soccer (MLS) using player performance statistics.
+
+You can think of it as a custom-built analytics engine that scrapes, cleans, processes, and visualizes soccer player data to answer the question:  
+**"Who’s really been the MVP this season?"**
+
+---
+
+## Getting Started
+
+### 1. Clone the project
+
+```
+git clone https://github.com/your-username/soccer-mvp-analyzer.git
+cd soccer-mvp-analyzer
+```
+
+
+Make sure you're using Python 3.12 and then install the required packages:
+
+```pip install -r requirements.txt```
+
+Or, if you're using pyenv:
+```
+pyenv install 3.12.4
+pyenv virtualenv 3.12.4 soccer-mvp-env
+pyenv activate soccer-mvp-env
+pip install -r requirements.txt
+```
+If you hit a ModuleNotFoundError: No module named 'distutils', run:
+
+```pip install setuptools```
+
+3. Run the MVP calculator
+In the terminal, run:
+
+python path/to/webscraper_v2.py
+It will compute the MVPs and save the results both as a CSV file and as an image.
+
+What This Project Does
+Scrapes and compiles soccer player performance data
+
+Uses Spark for large-scale data processing
+
+Calculates MVP based on a weighted combination of stats like SPI scores, goals, assists, and match appearances
+
+Ranks players and outputs a leaderboard
+
+Saves the results as both a .csv and a shareable .png image
+
+Outputs
+Once run, the project will generate:
+
+mls_2024_mvp_results.csv: Tabular MVP data
+
+mls_2024_mvp_results.png: Visual snapshot of the top players
+
+Tech Stack
+Python 3.12
+
+Apache Spark (PySpark): Scalable data processing
+
+Pandas: Data manipulation
+
+Matplotlib: Save tables as images
+
+Setuptools: Needed for compatibility with PySpark on Python 3.12+
+
+
 
 
 As of 12/28/24, there are 306 event options to choose from. 
