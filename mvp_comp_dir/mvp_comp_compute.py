@@ -20,6 +20,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from pandas.plotting import table
 
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import matplotlib.cm as cm
+import pandas as pd
+import os
 
 
 class AllCompetitions:
@@ -463,47 +468,110 @@ class MVP:
         mvp_df = df_with_scaled_matches.join(df_with_scaled_spi, on=["player_name", "player_number", "count", "avg(spi_score)"]).filter(col("count") >= min_required_matches).sort(desc("spi_scaled"))
         # mvp_distance_df = mvp_df.withColumn("euclidean_distance", sqrt(((1-col("spi_scaled"))**2 + (1-col("matches_scaled"))**2))).sort("euclidean_distance")
         mvp_scaled_df = mvp_df.withColumn("mvp_scaled", col("spi_scaled") * col("matches_scaled")).sort(col("mvp_scaled").desc())
-        self.save_dataframe_as_image(mvp_scaled_df.toPandas(), competition_name, competition_year)
-        print(mvp_scaled_df.show())
+        # Get the 98th percentile threshold for mvp_scaled
+        quantile_threshold = mvp_scaled_df.approxQuantile("mvp_scaled", [0.98], 0.01)[0]
+        # Filter for players in the top 2%
+        top_2_percent_df = mvp_scaled_df.filter(col("mvp_scaled") >= quantile_threshold).sort(col("mvp_scaled").desc())
+        # Optional: Save the top 2% separately or just display
+        print(f"Top 2% performers (>= 98th percentile threshold of {quantile_threshold:.5f}):")
+        top_2_percent_df.show()
         mvp_scaled_df.write.mode("overwrite").csv(f"{competition_name}_{competition_year}_dir/{competition_name}_{competition_year}_mvp_results.csv", header=True)
+        # Save top 2% separately if needed
+        top_2_percent_df.write.mode("overwrite").csv(f"{competition_name}_{competition_year}_dir/{competition_name}_{competition_year}_mvp_top2percent.csv", header=True)
+        # self.save_dataframe_as_image(mvp_scaled_df.toPandas(), competition_name, competition_year)
+        self.save_dataframe_as_image(top_2_percent_df.toPandas(), competition_name, competition_year)
+        # print(mvp_scaled_df.show())
+        print(top_2_percent_df.show())
         print(f"MVP Results have been saved successfully with a scalar of {scalar}!")
         spark_sess.stop()
 
+    def save_dataframe_as_image(self, df, competition_name, competition_year):
+        # Define output directory and image path
+        output_dir = f"{competition_name}_{competition_year}_dir"
+        os.makedirs(output_dir, exist_ok=True)
+        image_path = f"{output_dir}/{competition_name}_{competition_year}_mvp_results_image.png"
+        # Normalize the mvp_scaled column to [0, 1]
+        norm = mcolors.Normalize(vmin=df['mvp_scaled'].min(), vmax=df['mvp_scaled'].max())
+        cmap = cm.get_cmap('viridis')  # perceptual colormap
+        row_colors = [cmap(norm(val)) for val in df['mvp_scaled']]
+        # Set up plot
+        fig, ax = plt.subplots(figsize=(len(df.columns) * 2, len(df) * 0.5))
+        ax.set_title(
+            f"Top 2% MVPs for {competition_name.upper()} in {competition_year}",
+            fontsize=16, fontweight='bold', pad=20
+        )
+        ax.axis('off')
+        # Create table
+        table = ax.table(cellText=df.values,
+                        colLabels=df.columns,
+                        loc='center',
+                        cellLoc='center')
+        # Style header
+        for col_idx, col in enumerate(df.columns):
+            header_cell = table[0, col_idx]
+            header_cell.set_fontsize(12)
+            header_cell.set_text_props(weight='bold', color='white')
+            header_cell.set_facecolor('#333333')
+        # Style body cells with gradient color
+        for row_idx, row_color in enumerate(row_colors, start=1):  # row 0 is header
+            luminance = mcolors.rgb_to_hsv(row_color[:3])[2]
+            text_color = 'black' if luminance > 0.6 else 'white'
+            for col_idx in range(len(df.columns)):
+                cell = table[row_idx, col_idx]
+                cell.set_facecolor(row_color)
+                cell.get_text().set_color(text_color)
+        # Save image
+        plt.savefig(image_path, bbox_inches='tight', dpi=300)
+        plt.close()
+        print(f"Saved dataframe image to {image_path}")
 
-    def save_dataframe_as_image(self, df: pd.DataFrame, competition_name: str, competition_year: int):
-        """
-        Saves a Pandas DataFrame as an image.
-        
-        Args:
-            df (pd.DataFrame): The DataFrame to save as an image.
-            competition_name (str): The competition's name.
-            competition_year (int): The competition's year.
-        """
-        # Generate a plot to place the dataframe table
-        fig, ax = plt.subplots(figsize=(8, 4))  # Adjust the size as needed
-        ax.axis("off")  # Hides the axes
-        tbl = table(ax, df.head(20), loc='center', colWidths=[0.5]*len(df.columns))  # Only show the first 20 rows
-        tbl.auto_set_font_size(False)  # Disable automatic font size
-        tbl.set_fontsize(10)  # Set font size for better readability
-        tbl.scale(1.2, 1.2)  # Scale the table if necessary
 
-        # Save the figure as an image
-        image_path = f"{competition_name}_{competition_year}_dir/{competition_name}_{competition_year}_mvp_results_image.png"
-        plt.savefig(image_path, bbox_inches='tight', dpi=300)  # Save as a high-res PNG image
-        print(f"Image of the MVP results saved as {image_path}")
-        plt.close()  # Close the figure to free up memory
+
+def workflow_compute_mvp(competition_name: str, competition_year: int, scalar: int=4):
+    # competition_name = "mls"
+    # competition_year = 2024
+    # all_comps = AllCompetitions()
+    # print(all_comps.gather_all_competition_ids("https://www.fotmob.com/")) # run
+    comps = Competition()
+    print(comps.choose_competition(competition_name, competition_year)) # run
+    match = Match()
+    # print(match.extract_single_match_players_stats("https://www.fotmob.com/matches/new-york-red-bulls-vs-new-york-city-fc/1y6hxcay#4663699")) # shows all player stats, no need to run by itself as its already called below.
+    print(match.choose_match(competition_name, competition_year)) # run
+    player = Player()
+    print(player.choose_player_stats(competition_name, competition_year)) # run both 
+    print(player.competition_analysis(competition_name, competition_year)) # run both
+    mvp = MVP()
+    print(mvp.compute_mvp(competition_name, competition_year, scalar)) # run this
+    return f"Most Valuable Player has been unvailed from competition {competition_name} during the year {competition_year}"
+
+
 
 
 
 if __name__ == "__main__":
     # MLS 2024 = League + Playoffs
-    # Add Euclidean Distance Column
     # Allow exponential scaling to SPI Scores
-    # Turn into an API
 
+    # Option 1: run the main workflow below, calling all the individual methods above. 
     # all_comps = AllCompetitions()
     # print(all_comps.gather_all_competition_ids("https://www.fotmob.com/")) # run
 
+    # print(workflow_compute_mvp("mls", 2024))
+    # # print(workflow_compute_mvp("mls", 2023, 4))
+    # # print(workflow_compute_mvp("mls", 2022, 4))
+    # # print(workflow_compute_mvp("mls", 2021, 4))
+    # # print(workflow_compute_mvp("mls", 2020, 4))
+    # # print(workflow_compute_mvp("mls", 2019, 4))
+    # # print(workflow_compute_mvp("mls", 2018, 4))
+    # # print(workflow_compute_mvp("mls", 2017, 4))
+    # # print(workflow_compute_mvp("mls", 2016, 4))
+
+
+
+    # # Option 2: Uncomment below and run the following individual commands based on entire workflow above from Option 1
+
+    # all_comps = AllCompetitions()
+    # print(all_comps.gather_all_competition_ids("https://www.fotmob.com/")) # run
 
 
     # comps = Competition()
@@ -511,7 +579,7 @@ if __name__ == "__main__":
 
 
     # match = Match()
-    # print(match.extract_single_match_players_stats("https://www.fotmob.com/matches/new-york-red-bulls-vs-new-york-city-fc/1y6hxcay#4663699")) # shows all player stats
+    # # print(match.extract_single_match_players_stats("https://www.fotmob.com/matches/new-york-red-bulls-vs-new-york-city-fc/1y6hxcay#4663699")) # shows all player stats, no need to run by itself as its already called below.
     # print(match.choose_match("mls", 2024)) # run
 
 
