@@ -1,10 +1,10 @@
-# ⚽ FootballMVPAPI
+# FootballMvpAPI
 
 Analysis to determine the most valuable player and an API to run it all
 
 ---
 
-## 🔍 Soccer MVP Analyzer
+## Soccer MVP Analyzer
 
 This project calculates the **Most Valuable Player (MVP)** for professional football leagues and tournaments using player performance statistics.
 
@@ -13,7 +13,7 @@ You can think of it as a custom-built analytics engine that scrapes, cleans, pro
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Clone the project
 
@@ -86,7 +86,7 @@ def compute_mvp(
 
 ---
 
-## ⚙️ Run Options
+## Run Options
 
 ### Option A: Docker Container
 
@@ -163,7 +163,7 @@ python mvp_comp_dir/mvp_comp_compute.py
 
 ---
 
-## 🧪 Examples
+## Examples
 
 ### View Competitions
 
